@@ -5,3 +5,6 @@ This is an implementation of the Diffusion Transformer Architecture based on [th
 Some questions that I have and will attempt to answer is:
 
 - How do attention layers 'beat' the learning/representational capacity of CNNs, which seem well suited for images (inductive bias of way animals see)?
+
+Answers:
+1. Architectural complexity of CNNs vs. Transformers: how do we evaluate this (Raw GFLOPS vs. parallelization?)

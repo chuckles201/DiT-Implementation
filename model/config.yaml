@@ -1,0 +1,83 @@
+# here is where we can store all the settings
+# in one place!
+
+
+dataset_params:
+    im_path: 'data/CelebAMask-HQ'
+    im_size: 128
+    im_channels: 3
+  
+## ddpm training  
+diffusion_params:
+    num_timesteps: 1000
+    beta_start: 0.0001
+    beta_end: 0.02
+    
+# DiT model architecture (following DiT-B), 5.6 Gflops
+dit_params:
+    patch_size: 2
+    num_layers: 12
+    hidden_size: 768
+    num_heads: 12
+    head_dim: 64
+    timestep_embd_dim: 768 # time-emb dim
+    
+# these are the parameters of our auto-encoder
+# it defines how we start-off with some feature-maps, and
+# gradually distill them to the latent-space, 'learning'
+# about what the image represents
+autoencoder_params:
+    z_channels: 4 # this is the number of channels in latent-space
+
+    codebook_size: 8192 # $$$$$$$$$$$$$$$$444
+
+    mid_channels: [384] # channels in middle-dim?
+    down_channels: [128,256,384] # channels as we go
+
+    down_sample: [True,True] #$$$$$$$$$$$$$$$$$$$$
+
+    attn_dwn: [False,False] # $$$$$$$$$$$$$$
+
+    norm_channels: 32 # group-norm amount of channels used
+    num_heads: 4 # num_heads for attn in encoder
+
+    # what does this mean?
+    num_down_layers: 2 # layers that we move down $$$$
+    num_mid_layers: 2
+    num_up_layers: 2 
+
+
+train_params:
+    seed: 1111
+    task_name: 'celebhq'
+
+    # training autoencoder
+    autoencoder_batch_size: 4
+    autoencoder_epochs: 3
+    autoencoder_lr: 0.00001
+    autoencoder_acc_steps: 1
+
+    # what is this?
+    disc_start: 7500
+    disc_weight: 0.5
+    commitment_beta: 0.2
+    perceptual_weight: 1
+    kl_weight: 0.000005
+    autoencoder_img_save_steps: 64
+    save_latents: False
+    
+    # training DiT in latent-space
+    dit_batch_size: 32
+    dit_epochs: 500
+    num_samples: 1
+    num_grid_rows: 2
+    dit_lr: 0.00001
+    dit_acc_steps: 1
+
+    # saving weights
+    vae_latent_dir_name: 'vae_latents'
+    dit_ckpt_name: 'dit_ckpt.pth'
+    vae_autoencoder_ckpt_name: 'vae_autoencoder_ckpt.pth'
+    vae_discriminator_ckpt_name: 'vae_discriminator_ckpt.pth'
+    # discriminator is for what evaluating how well
+    # the model preforms with FID
