@@ -20,7 +20,7 @@ dit_params:
     hidden_size: 768
     num_heads: 12
     head_dim: 64
-    timestep_embd_dim: 768 # time-emb dim
+    timestep_emb_dim: 768 # time-emb dim
     
 # these are the parameters of our auto-encoder
 # it defines how we start-off with some feature-maps, and

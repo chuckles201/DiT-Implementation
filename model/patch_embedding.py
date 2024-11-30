@@ -16,7 +16,12 @@ and the grid height and width, and the hidden-size for
 the dimensionality of embeddings
 - For each x, and each y, will produce a position embedding,
 producing one pair for each element in the grid.
-- Sinusodial embeddings
+
+
+Furthermore, the sinusodial embeddings effectively ensure that 
+for each vector, the embeddings will vary over time with different 
+wavelengths, allowing a variety of things to be expressed with 
+various frequencies.
 
 '''
 def get_patch_pos_embed(dim, grid_dim,device):
@@ -25,9 +30,31 @@ def get_patch_pos_embed(dim, grid_dim,device):
     # creating 'grid' for our embeddings
     grid_h = torch.arange(grid_size_h,dtype=torch.float32,device=device)
     grid_w = torch.arange(grid_size_w,dtype=torch.float32)
+    
+    # getting positions
+    grid = torch.meshgrid([grid_h,grid_w],indexing='ij')
+    grid_h_pos = grid[0]
+    grid_w_pos = grid[1]
 
-
-    # embedding = 10k ^ (2i/d_model)
+    # emb = 10k ^ (2i/d_model)
+    # getting the weight/factor term [0,1]
+    factor = 10000 ** (torch.arange(start = 0,
+                                   end = dim // 4,
+                                   dtype=torch.float32,
+                                   device=device) / (dim // 4))
+    
+    # multiplying across each i, for each timestep
+    # having dim/4 for each sin and cos, which will
+    # be concated
+    emb_h = grid_h_pos[:,None].repeat(1,dim//4) / factor
+    emb_h = torch.cat([torch.sin(emb_h),torch.cos(emb_h)],dim=-1)
+    
+    emb_w = grid_w_pos[:,None].repeat(1,dim//4) / factor
+    emb_w = torch.cat([torch.sin(emb_w),torch.cos(emb_w)],dim=-1)
+    
+    pos_emb = torch.cat([emb_h,emb_w],dim=-1)
+    
+    return pos_emb
 
 '''Patch Embedding
 In this part of our model, we are simply taking 2d patches
@@ -56,6 +83,7 @@ class PatchEmbedding(nn.Module):
         self.image_height = height
         self.image_width = width
         self.im_channels = channels
+        self.hidden_size = hidden_size
         
         self.patch_height = patch_height
         self.patch_width = patch_width
@@ -82,6 +110,7 @@ class PatchEmbedding(nn.Module):
          
         # (B,C,H,W) -> (B,P,Ph*Pw,D)
         # advance based on dimensionality; axes permuted
+        # for each patch, maintain dim size D
         out = rearrange(x, 'b c (nh ph) (nw pw) -> b (nw nh) (ph pw c)',
                         nh = grid_size_h,
                         nw = grid_size_w)
@@ -89,9 +118,10 @@ class PatchEmbedding(nn.Module):
         out = self.patch_embed(out)
         
         # getting concated x/y pos_emb (flattened)
-        pos_embed = get_patch_pos_embed()
+        pos_embed = get_patch_pos_embed(dim=self.hidden_size, grid_dim=[grid_size_h,grid_size_w])
         
         out += pos_embed
+        
         return out
     
         
