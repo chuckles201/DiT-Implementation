@@ -46,6 +46,40 @@ def raw_images_convert(dataset,dir,extension='jpg',num='all'):
             print("Saved ", final_num," images in ", dir)
 
 
+'''Saving labels
+
+Here, we will save the labels, in 
+case we want to do guidance in the future.
+We'll have a csv file, where the labels correspond
+to the index of the image.
+'''
+def save_raw_labels(dataset,dir,num='all'):
+    if os.path.exists(dir) != True:
+        os.makedirs(dir)
+    if os.path.exists(os.path.join(dir,'labels.csv')):
+        print("labels.csv already created, skipping")
+        
+    # creating if not done already
+    else:
+        if num == 'all':
+            # all of our labels
+            full_path = os.path.join(dir,'labels.csv')
+            labels = [label for _, label in dataset]
+            df = pd.DataFrame(labels,columns=["Labels"])
+            df.to_csv(full_path,index=False)
+            print("saved at ",full_path)
+        else: 
+            # number of labels.
+            full_path = os.path.join(dir,'labels.csv')
+            labels = []
+            for i in range(num):
+                labels.append(dataset[i][1])
+            df = pd.DataFrame(labels,columns=["Labels"])
+            df.to_csv(full_path,index=False)
+            print("saved at ",full_path)
+
+
+
 
 '''DataLoader
 
@@ -70,13 +104,15 @@ class ImageDataset(Dataset):
     def __init__(self,
                  transform,
                  im_path,
+                 label_folder = None,
                  im_extension='jpg',
                  use_latents = False,
-                 latent_folder = None):
+                 latent_folder = None,):
         
         # parameters for loading our 
         # images
         self.use_latents = use_latents
+        self.label_folder = label_folder
         self.latent_folder = latent_folder
         self.im_path = im_path
         self.im_extension = im_extension
@@ -108,14 +144,21 @@ class ImageDataset(Dataset):
             # typical latent-name
             full_path = os.path.join(self.latent_folder,'latent_storage.pt')
             imgs_file = torch.load(full_path)
-            print(imgs_file)
             # loading from correct index,
             # need [0] for base-list
             image = imgs_file[0][index]
+
+           
+        if isinstance(self.label_folder,str): 
+            # now,loading labels.
+            label_path = os.path.join(self.label_folder,'labels.csv')
+            df = pd.read_csv(label_path)
+            labels = df["Labels"].tolist()
+            label = labels[index]
+        else:
+            label = None
             
-            # index should match what was loaded!
-            
-        return image
+        return image, label
     
 
 

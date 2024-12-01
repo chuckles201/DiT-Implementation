@@ -27,24 +27,8 @@ dit_params:
 # gradually distill them to the latent-space, 'learning'
 # about what the image represents
 autoencoder_params:
-    z_channels: 4 # this is the number of channels in latent-space
-
-    codebook_size: 8192 # $$$$$$$$$$$$$$$$444
-
-    mid_channels: [384] # channels in middle-dim?
-    down_channels: [128,256,384] # channels as we go
-
-    down_sample: [True,True] #$$$$$$$$$$$$$$$$$$$$
-
-    attn_dwn: [False,False] # $$$$$$$$$$$$$$
-
-    norm_channels: 32 # group-norm amount of channels used
-    num_heads: 4 # num_heads for attn in encoder
-
-    # what does this mean?
-    num_down_layers: 2 # layers that we move down $$$$
-    num_mid_layers: 2
-    num_up_layers: 2 
+    # Build this up as we want to customize
+    # our VAE
 
 
 train_params:

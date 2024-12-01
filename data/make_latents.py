@@ -33,12 +33,9 @@ def store_latents(dataset,path,model):
         ra = tqdm(range(len(dataset)))
         for i in ra:
             # appending latent-outputs
-            indxs.append(dataset.images[i])
-            latent_outputs.append(model(dataset[i]))
+            # passing-thru labels.
+            latent_outputs.append(model(dataset[i][0]))
             
         save = [latent_outputs]
-        
         torch.save(save,full_path)
-
-
 
