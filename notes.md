@@ -2,6 +2,18 @@ Inspiration from [this video](https://www.youtube.com/watch?v=KAYYo3lNOHY&t=1931
 
 ## DiT Notes
 
+### Attention vs. CNNs
+The attention mechanism in each layer can be seen as some type of semantic-level, in which the kqv projection weights guide the input to interact with the other features. Then this is fed to the next layer and repeated.
+
+Convolutions are more straight forward; we look for features with our kernels, and slowly lower the spatial dimensions, while growing the feature-dimensions.
+
+### Weight intialization and 'tricks'
+
+Normalization is used so the the statistics in general are steady; think of having relative meaning within the neurons, but no large divergent values.
+
+Xavier initialization is used sometimes over he initializtion because:
+- accounts for stability in backward pass when using non-RELU activations functions that don't zero-out half of values
+- allows
 
 ### ***ViT***
 
@@ -37,3 +49,5 @@ Here are some other things the authors find:
 1. As we scale up the transformer (across all patch-sizes), it does better
 2. Scaling the patch-size, while keeping the model-size constant, the model fpreforms better (flops scale, but not parameters)
 3. Strong correlation between FLOPS and FID score. This makes sense, the more compute we give to the problem, the better it preforms.
+
+Furthermore, the authors found that investing more compute in sampling with the diffusion models could not compensate for a lack of compute invested in the model during training.

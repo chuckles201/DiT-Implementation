@@ -11,7 +11,7 @@ of the dataset, and save the representations in
 a file.
 '''
 
-def store_latents(dataset,path,model):
+def store_latents(dataset,path,model,device='cuda'):
     # takes entire dataset and maps to 
     # a specific path for latent images.
     # returns the path of the representations
@@ -33,8 +33,8 @@ def store_latents(dataset,path,model):
         ra = tqdm(range(len(dataset)))
         for i in ra:
             # appending latent-outputs
-            # passing-thru labels.
-            latent_outputs.append(model(dataset[i][0]))
+            # passing-thru labels. unsq for model
+            latent_outputs.append(model(dataset[i][0].unsqueeze(0).to(device)))
             
         save = [latent_outputs]
         torch.save(save,full_path)

@@ -1,67 +1,29 @@
-# here is where we can store all the settings
-# in one place!
+# Adding parameters for model, to have it 
+# all in one-place!
 
 
-dataset_params:
-    im_path: 'data/CelebAMask-HQ'
-    im_size: 128
-    im_channels: 3
-  
-## ddpm training  
-diffusion_params:
-    num_timesteps: 1000
-    beta_start: 0.0001
-    beta_end: 0.02
-    
-# DiT model architecture (following DiT-B), 5.6 Gflops
+# using DiT 2nd smallest
+# with patch-size2, is close...
 dit_params:
-    patch_size: 2
-    num_layers: 12
-    hidden_size: 768
-    num_heads: 12
-    head_dim: 64
-    timestep_emb_dim: 768 # time-emb dim
-    
-# these are the parameters of our auto-encoder
-# it defines how we start-off with some feature-maps, and
-# gradually distill them to the latent-space, 'learning'
-# about what the image represents
-autoencoder_params:
-    # Build this up as we want to customize
-    # our VAE
+  patch_height: 2
+  patch_width: 2
+  num_heads: 12
+  layers: 12
+  h_dim: 768
 
+  # latent-space
+  im_height: 32
+  im_width: 32
+  im_channels: 4
 
-train_params:
-    seed: 1111
-    task_name: 'celebhq'
+  # matching hidden-dim
+  timestep_dim: 768
 
-    # training autoencoder
-    autoencoder_batch_size: 4
-    autoencoder_epochs: 3
-    autoencoder_lr: 0.00001
-    autoencoder_acc_steps: 1
+VAE_params:
+  im_height: 256
+  im_width: 256
+  im_channels: 3
 
-    # what is this?
-    disc_start: 7500
-    disc_weight: 0.5
-    commitment_beta: 0.2
-    perceptual_weight: 1
-    kl_weight: 0.000005
-    autoencoder_img_save_steps: 64
-    save_latents: False
-    
-    # training DiT in latent-space
-    dit_batch_size: 32
-    dit_epochs: 500
-    num_samples: 1
-    num_grid_rows: 2
-    dit_lr: 0.00001
-    dit_acc_steps: 1
-
-    # saving weights
-    vae_latent_dir_name: 'vae_latents'
-    dit_ckpt_name: 'dit_ckpt.pth'
-    vae_autoencoder_ckpt_name: 'vae_autoencoder_ckpt.pth'
-    vae_discriminator_ckpt_name: 'vae_discriminator_ckpt.pth'
-    # discriminator is for what evaluating how well
-    # the model preforms with FID
+  latent_height: 32
+  latent_width: 32
+  latent_channels: 4
