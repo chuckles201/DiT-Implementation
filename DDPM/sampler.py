@@ -13,11 +13,12 @@ MSE loss
 
 '''
 class DDPM:
-    def __init__(self,steps,betas):
-        self.betas = torch.linspace(betas[0],betas[1],steps)
+    def __init__(self,steps,betas,device):
+        self.betas = torch.linspace(betas[0]**0.5,betas[1]**0.5,steps,device=device)**2
         self.alphas = 1-self.betas
         self.alphas_cumprod = torch.cumprod(self.alphas,dim=0)
         self.steps= steps
+        self.device=device
         
     def add_random_noise(self,batch):
         # for each batch, add-noise,
@@ -25,9 +26,9 @@ class DDPM:
         input_shape = batch.shape
         # easy to deal with
         batch = batch.view(input_shape[0],-1)
-        noise = torch.randn_like(batch)
+        noise = torch.randn_like(batch,device=self.device)
         # broadcast across dim=1
-        steps = torch.randint(0,self.steps,size=(batch.shape[0],))
+        steps = torch.randint(0,self.steps,size=(batch.shape[0],),device=self.device)
         
         # selecting from alpha bars
         # B, 1
@@ -41,6 +42,7 @@ class DDPM:
         # step doesn't matter; predicting
         # same ground-truth noise!
         noise = noise.view(input_shape)
-        return noised_images, noise
+        
+        return noised_images,steps, noise
     
     

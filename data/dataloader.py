@@ -107,8 +107,10 @@ class ImageDataset(Dataset):
                  label_folder = None,
                  im_extension='jpg',
                  use_latents = False,
-                 latent_folder = None,):
+                 latent_folder = None,
+                 device='cpu'):
         
+        self.device=device
         # parameters for loading our 
         # images
         self.use_latents = use_latents
@@ -124,8 +126,16 @@ class ImageDataset(Dataset):
     # for length function
     def load_images(self):
         # search all with given extension
-        fnames = glob.glob(os.path.join(self.im_path,f"*.{self.im_extension}"))
-        self.images = fnames
+        if self.use_latents:
+            full_path = os.path.join(self.latent_folder,'latent_storage.pt')
+            self.images = torch.load(full_path,map_location=torch.device(self.device))[0]
+            # loading from correct index,
+            # need [0] for base-list
+            
+            
+        else:
+            fnames = glob.glob(os.path.join(self.im_path,f"*.{self.im_extension}"))
+            self.images = fnames # image file-names
         
         
     # first required function
@@ -141,12 +151,8 @@ class ImageDataset(Dataset):
             image = self.transform(im)
             im.close()
         else:
-            # typical latent-name
-            full_path = os.path.join(self.latent_folder,'latent_storage.pt')
-            imgs_file = torch.load(full_path)
-            # loading from correct index,
-            # need [0] for base-list
-            image = imgs_file[0][index]
+            # from latent-list
+            image = self.images[index]
 
            
         if isinstance(self.label_folder,str): 

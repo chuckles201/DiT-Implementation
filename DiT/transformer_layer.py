@@ -18,6 +18,19 @@ in the class and time-embeddings.
 takes:
 -numheads,
 -d_hidden
+
+Our AdaLN parameters
+will start at zero, so our
+block is intially an identity block.
+
+We init weights with xavier and biases
+with zero. 
+
+- Xavier factors in nout, which 
+is needed for stability during backward pass.
+Xavier also works well with layernorm, because
+xavier assumes a subsequent activation.
+
 '''
 
 class TransformerBlock(nn.Module):
@@ -51,7 +64,6 @@ class TransformerBlock(nn.Module):
         self.mlp_norm = nn.LayerNorm(self.h_dim)
         self.silu = nn.SiLU()
         
-        
         # initializes weights at zero
         # for parameters
         nn.init.constant_(self.t_proj[0].weight,0)
@@ -61,6 +73,12 @@ class TransformerBlock(nn.Module):
         nn.init.constant_(self.t_proj[4].weight,0)
         nn.init.constant_(self.t_proj[4].bias,0)
         
+        
+        ### Other weight-inits! ###
+        nn.init.xavier_uniform_(self.mlp_1.weight)
+        nn.init.xavier_uniform_(self.mlp_2.weight)
+        nn.init.constant_(self.mlp_1.bias,0)
+        nn.init.constant_(self.mlp_2.bias,0)
         
     # takes in x, t 
     # TODO: add class functionality!

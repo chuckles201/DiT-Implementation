@@ -5,16 +5,14 @@ import os
 from tqdm import tqdm
 
 ''' Storing Latents
-In this file, we will simply make a function,
-that given a VAE, can run every single instance
-of the dataset, and save the representations in 
-a file.
-
-We specify a batch-size if we want to
-try to do more in parallel.
+This is modified for storing
+the encoder outputs of SD's
+VAE, and does not take batch size
+as an argument, and saves encoder
+outputs (dict).
 '''
 
-def store_latents(dataset,path,model,batch_size=16):
+def store_latents(dataset,path,model):
     # takes entire dataset and maps to 
     # a specific path for latent images.
     # returns the path of the representations
@@ -34,15 +32,14 @@ def store_latents(dataset,path,model,batch_size=16):
     else: # NEED for cuda memory
         with torch.no_grad(): 
             # take all images.
-            ra = tqdm(range(len(dataset) // batch_size))
+            ra = tqdm(range(len(dataset)))
             for i in ra:
                 # appending latent-outputs
                 # passing-thru labels.
-                index = i*batch_size
-                batch = torch.stack([dataset[index+i][0] for i in range(batch_size)],dim=0).to('cuda')
-                output = model(batch).chunk(batch_size,dim=0)
-                for i in range(batch_size):
-                    latent_outputs.append(output[i][0].to('cpu'))
+                # add extra-b dim
+                sample = dataset[i][0].unsqueeze(0).to('cuda')
+                output = model(sample)
+                latent_outputs.append(output)
                 
             save = [latent_outputs]
             torch.save(save,full_path)

@@ -80,7 +80,7 @@ class DiT(nn.Module):
         # adaln params
         # B,1,emb
         adaln = self.adaln(time_emb).unsqueeze(-2).chunk(2,dim=-1)
-        
+        x = self.patchify(x)
         # passing all thru!
         for layer in self.transformer_layers:
             x = layer(x,time_emb)
@@ -97,7 +97,7 @@ class DiT(nn.Module):
         # b,p,emb -> b,c,h,w 
         # each patch has 2x2 pixels
         # which we'll stick together
-        de_patch = rearrange(x, 'b (nh nw) (ph pw c) -> b (nh ph) (nw pw) c',
+        de_patch = rearrange(x, 'b (nh nw) (ph pw c) -> b c (nh ph) (nw pw)',
                              c = c,
                              nh = num_height,
                              nw = num_width,

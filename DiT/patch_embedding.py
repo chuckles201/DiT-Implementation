@@ -99,19 +99,16 @@ class PatchEmbedding(nn.Module):
     def forward(self,x):
         # create patches shape
         # B,P,H_dim
-        
         # num patches h/w
         grid_height = self.image_height // self.patch_height
         grid_width = self.image_width // self.patch_width
         
-        # B,C,H,W -> B,H,W,C
-        x = x.permute(0,2,3,1).contiguous()
-        # B,nh*ph, nw*pw, C -> splitting dims
-        x = x.view(x.shape[0],grid_height,self.patch_height,grid_width,self.patch_width,x.shape[3])
-        # B,nh,ph,nw,pw,C -> B,nh*nw,ph*pw*c
-        x = x.permute(0,1,3,2,4,5).contiguous()
-        x = x.view(x.shape[0],x.shape[1]*x.shape[2],x.shape[3]*x.shape[4]*x.shape[5])
+        # B,C,H,W -> B,p,inp_dim
+        x = rearrange(x,'b c (nh ph) (nw pw) -> b (nh nw) (ph pw c)',
+                      nh = grid_height,
+                      nw = grid_width)
         
+        # B, 256, 16
         x = self.patch_embed(x)
         
         return x
