@@ -39,7 +39,7 @@ class TransformerBlock(nn.Module):
         self.num_heads = config['num_heads']
         self.h_dim = config['h_dim']
         self.d_head = self.h_dim //self.num_heads
-        self.attn_norm = nn.LayerNorm(self.h_dim)
+        self.attn_norm = nn.LayerNorm(self.h_dim,elementwise_affine=False)
         
         self.timestep_dim = config['timestep_dim']
         
@@ -48,30 +48,29 @@ class TransformerBlock(nn.Module):
         
         # projection for adaln params
         # 6 for each transformer-block
-        # DIFFERS FROM PAPER
-        self.t_proj = nn.Sequential(
-            nn.Linear(self.timestep_dim,self.h_dim),
+        # should be informative MLP!
+        self.adaln = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(self.h_dim,self.h_dim),
+            nn.Linear(config['h_dim'],config['h_dim']),
             nn.SiLU(),
-            nn.Linear(self.h_dim,6*self.h_dim)
+            nn.Linear(self.h_dim,self.h_dim*6),
         )
 
         
         # mlp layer of transformer
+        # not learning mlpnorm!
         self.mlp_1 = nn.Linear(self.h_dim,self.h_dim*4)
         self.mlp_2 = nn.Linear(self.h_dim*4,self.h_dim)
-        self.mlp_norm = nn.LayerNorm(self.h_dim)
-        self.silu = nn.SiLU()
+        self.mlp_norm = nn.LayerNorm(self.h_dim,elementwise_affine=False)
+        self.gelu = nn.GELU(approximate='tanh')
         
         # initializes weights at zero
         # for parameters
-        nn.init.constant_(self.t_proj[0].weight,0)
-        nn.init.constant_(self.t_proj[0].bias,0)
-        nn.init.constant_(self.t_proj[2].weight,0)
-        nn.init.constant_(self.t_proj[2].bias,0)
-        nn.init.constant_(self.t_proj[4].weight,0)
-        nn.init.constant_(self.t_proj[4].bias,0)
+        nn.init.constant_(self.adaln[-1].weight,0)
+        nn.init.constant_(self.adaln[-1].bias,0)
+        # for non-last
+        nn.init.xavier_uniform_(self.adaln[1].weight)
+        nn.init.constant_(self.adaln[1].bias,0)
         
         
         ### Other weight-inits! ###
@@ -85,7 +84,7 @@ class TransformerBlock(nn.Module):
     def forward(self,x,time):
         # scale/shift1,alpha1,scale/shift2,alpha2
         # unsqueeze so alligns w/ each
-        ada_ln_params = self.t_proj(time).unsqueeze(-2).chunk(6,dim=-1)
+        ada_ln_params = self.adaln(time).unsqueeze(-2).chunk(6,dim=-1)
         # attn layer
         residue = x
         x = self.attn_norm(x) * (ada_ln_params[0]+1) + ada_ln_params[1]
@@ -96,9 +95,9 @@ class TransformerBlock(nn.Module):
         residue = x
         x = (self.mlp_norm(x) * (ada_ln_params[3]+1)) + ada_ln_params[4]
         x = self.mlp_1(x)
-        x = self.silu(x)
+        x = self.gelu(x) # observed to work better?
         x = self.mlp_2(x)
-        x = (x*ada_ln_params[5]+residue)
+        x = x*ada_ln_params[5]+residue
         
         return x
     

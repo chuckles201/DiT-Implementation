@@ -12,6 +12,9 @@ pre-built VAE, and split the decoding, and encoding part.
 We acess the latent_dist params with .mean and .logvar
 and sample from decoder with .sample.
 '''
+
+# NOTE, ONLY FOR SDXL USING!
+
 class VAE(nn.Module):
     def __init__(self):
         super().__init__()
@@ -57,7 +60,7 @@ def get_vae():
 
 
 # test: works!
-t = torch.randn([1,3,32,32])
-vae,encoder = get_vae()
-t = encoder(t)
-print(vae.decode(t).shape)
+# t = torch.randn([1,3,32,32])
+# vae,encoder = get_vae()
+# t = encoder(t)
+# print(vae.decode(t).shape)

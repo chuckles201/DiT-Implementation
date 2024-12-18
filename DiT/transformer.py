@@ -29,6 +29,23 @@ def get_time_embedding(input,dim):
 # t = torch.randint(0,18,size=(12,))
 # get_time_embedding(t,)
 
+
+'''Class-Embedding
+Embedding for our classes, different than time embedding
+in that no classes are automatically similar.
+
+Just acess an embedding-table of len classes, and then
+'''
+class YEmbedding(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.embedding = nn.Embedding(config['num_classes'],config['h_dim'])
+        
+    # size (B,) labels
+    def forward(self,label):
+        return self.embedding(label)
+    # returns shape(B,dim_embed)
+
 '''DiT
 
 Our DiT model, now just puts
@@ -44,20 +61,35 @@ the same as the hidden-dim
 class DiT(nn.Module):
     def __init__(self,config):
         super().__init__()
+        self.n_classes = config['num_classes']
         self.config=config
+        self.class_table = YEmbedding(config)
         # starting 256 hidden-size?
         self.patchify = PatchEmbedding(config)
         self.transformer_layers = nn.ModuleList(
             [TransformerBlock(config) for _ in range(config['layers'])]
         )
-        # projection for final de-patch
-        self.norm = nn.LayerNorm(config['h_dim'])
-        self.out_proj = nn.Linear(config['h_dim'],config['im_channels']*config['patch_height']*config['patch_width'])
+        # projection for final de-patch, noise/var
+        # norm doesn't learn!
+        self.norm = nn.LayerNorm(config['h_dim'],elementwise_affine=False)
+        self.out_proj = nn.Linear(config['h_dim'],config['im_channels']*config['patch_height']*config['patch_width']*2)
         
-        # adaln
-        # double-proj
-        self.adaln = nn.Sequential(
+        # initial projection
+        # before individuals are learned!
+        self.time_proj = nn.Sequential(
             nn.Linear(config['timestep_dim'],config['h_dim']),
+        )
+            
+        self.class_proj = nn.Sequential(
+            nn.Linear(config['timestep_dim'],config['h_dim']),
+        )   
+        
+        self.cond_embed = nn.Sequential(
+            nn.SiLU(),
+            nn.Linear(config['timestep_dim'],config['h_dim'])
+        ) 
+        
+        self.adaln = nn.Sequential(
             nn.SiLU(),
             nn.Linear(config['h_dim'],config['h_dim']),
             nn.SiLU(),
@@ -69,21 +101,44 @@ class DiT(nn.Module):
         nn.init.constant_(self.out_proj.weight,0)
         nn.init.constant_(self.out_proj.bias,0)
         
+        # adaln in-bet
+        nn.init.xavier_uniform_(self.adaln[1].weight)
+        nn.init.constant_(self.adaln[1].bias,0)
+        
         # starting out adaln to be zero
         nn.init.constant_(self.adaln[-1].weight,0)
         nn.init.constant_(self.adaln[-1].bias,0)
-        ### IGNORING OTHER INITs
         
-    def forward(self,x,t):
-        # B,t_emb
+        
+        
+        ### Xavier init. for stability
+        nn.init.xavier_uniform_(self.cond_embed[-1].weight)
+        nn.init.constant_(self.cond_embed[-1].bias,0)
+        
+        nn.init.xavier_uniform_(self.time_proj[0].weight)
+        nn.init.constant_(self.time_proj[0].bias,0)
+        
+        nn.init.xavier_uniform_(self.class_proj[0].weight)
+        nn.init.constant_(self.class_proj[0].bias,0)
+        
+    def forward(self,x,t,y):
+        # B,t_emb=hdim
         time_emb = get_time_embedding(t,self.config['timestep_dim'])
+        # class emb add-> B,y_emb=hdim
+        class_emb = self.class_table(y)
         # adaln params
         # B,1,emb
-        adaln = self.adaln(time_emb).unsqueeze(-2).chunk(2,dim=-1)
+        cond = self.time_proj(time_emb)+self.class_proj(class_emb)
+        cond_embed = self.cond_embed(cond)
+        # final projection of both-added
+        adaln = self.adaln(cond_embed).unsqueeze(-2).chunk(2,dim=-1)
+        
         x = self.patchify(x)
+        
         # passing all thru!
+        # give condition-embed!
         for layer in self.transformer_layers:
-            x = layer(x,time_emb)
+            x = layer(x,cond_embed)
             
         x = self.norm(x) * (adaln[0] + 1) + adaln[1]
         x = self.out_proj(x)
@@ -94,16 +149,17 @@ class DiT(nn.Module):
         num_width = self.config['im_height']//self.config['patch_height']
         
         
-        # b,p,emb -> b,c,h,w 
+        # b,p,emb*2 -> b,2,c,h,w,
         # each patch has 2x2 pixels
         # which we'll stick together
-        de_patch = rearrange(x, 'b (nh nw) (ph pw c) -> b c (nh ph) (nw pw)',
+        de_patch = rearrange(x, 'b (nh nw) (ph pw c np) -> b np c (nh ph) (nw pw)',
                              c = c,
                              nh = num_height,
                              nw = num_width,
                              ph = h//num_height,
                              pw = w//num_width,
-                             b = b)
+                             b = b,
+                             np= 2)
         
         return de_patch
 
@@ -116,11 +172,12 @@ class DiT(nn.Module):
 # with open('./config/config.yaml') as file:
 #     config = yaml.safe_load(file)
 # # testing:
-# t = torch.randn([8,16*16,768])
+# t = torch.randn([1,4,32,32])
 # time = torch.randint(0,500,size=(8,))
 # model = DiT(config['dit_params'])
+# label=torch.tensor([1])
 
 # # B,p,hidden
 # print(sum([p.numel() for p in model.parameters()]))
 
-# print(model(t,time).shape)
+# print(model(t,time,label).chunk(2,dim=1)[0].shape)

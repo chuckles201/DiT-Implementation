@@ -1,4 +1,5 @@
 import torch
+import torch.distributed
 import torch.nn as nn
 import torch.nn.functional as F 
 import numpy as np
@@ -8,6 +9,7 @@ import yaml
 import sys
 import os
 from tqdm import tqdm
+import numpy as np
 # adding paths
 sys.path.append(os.path.join('DiT'))
 sys.path.append(os.path.join('DDPM'))
@@ -37,12 +39,42 @@ We do not predict the variance like the original paper,
 we have it fixed.
 '''
 
+###############################################################
+
+'''Multi-GPU support
+
+adding multi-gpu support, so 
+each gpu does its own random-batch,
+and losses are added-together
+before we do a step!'''
+
+# required modules
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group
+
+# intializes ddp
+def ddp_setup(rank,world_size):
+    # rank: identifies
+    # world-size: all
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = 12355 # random-port
+    init_process_group(backend="nccl",rank=rank,world_size=world_size) # nvidia
+
+# 1. Send model/all other things to current-gpu
+# 2. wrap moddel w/DDP (distributed data-parallel)
+
+# 3. Each model does a different part of data
+# 4. We average gradients between model before steps!
+###############################################################
+
+
 # hyper params:
-num_iters = 500
+num_iters = 1000000
 batch_size=16
-device = 'cuda'
-load = False
-    
+device = 'cuda'    
+betas = [1e-4,2e-2]
 
 ##### Cust dataset
 latent_path = os.path.join('data','latent_folder_sdxl')
@@ -50,16 +82,22 @@ label_path = os.path.join('data','label_folder')
 custom_data = dataloader.ImageDataset(transform=None,im_path='raw_images',label_folder=label_path,im_extension='jpeg',use_latents=True,latent_folder=latent_path)
 ########
 
-# setting up model
-model = transformer.DiT(config['dit_params'])
-# loading if specified
-if load:
-    model.load_state_dict(torch.load('weights.pt',model))
-model.to(device)
-# betas = begin noise/end, just follow authors
-# this is how the paper defines it...
-ddpm_sampler = sampler.DDPM(steps=1000,betas=[0.0001,0.02],device=device)
 
+# LOADING MODEL #
+model = transformer.DiT(config['dit_params'])
+
+load_model = input("Load model? (y/n)\n")
+if load_model == "y".lower():
+    model.load_state_dict(torch.load('./weights.pt'))
+
+
+# betas = begin noise/end, follwing 
+# authors
+ddpm_sampler = sampler.DDPM(steps=1000,
+                            betas=betas,
+                            scale=1.5,
+                            loss2_weight=1.5e-3,
+                            device='cuda')
 
 
 ############ Training #########
@@ -72,14 +110,15 @@ def get_batch(data,batch_size=batch_size):
     return x.to(device),y.to(device)
 
 # optimizer for quick convergence
-optimizer = torch.optim.AdamW(model.parameters(),lr=3e-4,betas=(0.9,0.999),weight_decay=1e-5)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer,100,0.2)
+optimizer = torch.optim.AdamW(model.parameters(),lr=2e-4,betas=(0.9,0.999),weight_decay=0)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer,100,0.998)
 # loss-function = MSE for noise-vector
-criterion = nn.MSELoss()
 
-
+model.train().to(device)
 losses = []
 # for now, no class-labels
+import time
+start = time.time()
 for i in range(num_iters):
     # getting batch
     batch,y = get_batch(custom_data)
@@ -87,23 +126,36 @@ for i in range(num_iters):
     # (b,c,h,w), (b), (b,c,h,w)
     noised_images,timesteps,noise = ddpm_sampler.add_random_noise(batch)
     
-    # model expects batch and time-step
-    noise_pred = model(noised_images,timesteps)
+    # model expects batch and cond (t and label)
+    model_out = model(noised_images,timesteps,y)
     
     # backward-pass
-    loss = criterion(noise_pred,noise)
+    # using our hybrid-loss from paper:
+    # 'improved DDPM's
+    loss = ddpm_sampler.hybrid_loss(model_out,noise,timesteps,noised_images)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     scheduler.step()
+    
     losses.append(loss.item())
-    if i % 2 ==0:
-        print(f"Iter {i}, loss: {loss}")
-    if i % 200 ==0:
-        print(f"weights saved")
-        torch.save(model,'weights.pt')
+    
+    checkpoint = 10
+    torch.cuda.synchronize()
+    if i % checkpoint ==0:
+        print(f"Iter {i} | Time:{time.time()-start} | Avg. loss: {np.mean(losses[-checkpoint:i])} ")
+        print(f"Hybrid-ratio: {ddpm_sampler.hybrid_loss_ratio()}")
+        start = time.time()
         
+    if i % 100 ==0:
+        print(f"weights saved")
+        torch.save(model.state_dict(),'weights.pt')
+        grads=[]
+        for name,param in model.named_parameters():
+            print(f"Name: {name} ||| Grad mean: {torch.mean(param.grad)}, std:{torch.std(param.grad)}\n")
+            grads.append(torch.std(param.grad).item())
         
 ### plotting loss
 import matplotlib.pyplot as plt
 plt.plot(losses)
+plt.show()

@@ -5,8 +5,8 @@
 # using DiT 2nd smallest
 # with patch-size2, is close...
 dit_params:
-  patch_height: 2
-  patch_width: 2
+  patch_height: 4
+  patch_width: 4
   num_heads: 12
   layers: 12
   h_dim: 768
@@ -19,6 +19,9 @@ dit_params:
 
   # matching hidden-dim
   timestep_dim: 768
+
+  # for class-embed
+  num_classes: 10
 
 # for VAE...
 VAE_params:
