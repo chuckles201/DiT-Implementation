@@ -59,13 +59,10 @@ class Attention(nn.Module):
         k = k.view(interim_shape).transpose(1,2)
         v = v.view(interim_shape).transpose(1,2)
         
-        # w = q @ k.transpose(-1,-2)
-        # w /= (q.shape[-1] ** 0.5)
-        # w = F.softmax(w,dim=-1)
-        # out = w @ v
-        
-        # attn. (no-mask)
-        out = F.scaled_dot_product_attention(q,k,v,None)
+        w = q @ k.transpose(-1,-2)
+        w /= (q.shape[-1] ** 0.5)
+        w = F.softmax(w,dim=-1)
+        out = w @ v
         
         # B, N_head, P, d_head -> B,P,Emb
         out = out.transpose(1,2).contiguous()
