@@ -51,8 +51,6 @@ class TransformerBlock(nn.Module):
         # should be informative MLP!
         self.adaln = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(config['h_dim'],config['h_dim']),
-            nn.SiLU(),
             nn.Linear(self.h_dim,self.h_dim*6),
         )
 
@@ -68,9 +66,6 @@ class TransformerBlock(nn.Module):
         # for parameters
         nn.init.constant_(self.adaln[-1].weight,0)
         nn.init.constant_(self.adaln[-1].bias,0)
-        # for non-last
-        nn.init.xavier_uniform_(self.adaln[1].weight)
-        nn.init.constant_(self.adaln[1].bias,0)
         
         
         ### Other weight-inits! ###

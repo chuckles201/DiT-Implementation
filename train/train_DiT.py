@@ -93,9 +93,9 @@ if load_model == "y".lower():
 
 # betas = begin noise/end, follwing 
 # authors
-ddpm_sampler = sampler.DDPM(steps=1000,
+ddpm_sampler = sampler.DDPM(steps=2000,
                             betas=betas,
-                            scale=1.5,
+                            scale=1,
                             loss2_weight=1.5e-3,
                             device='cuda')
 
